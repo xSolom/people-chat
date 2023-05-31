@@ -76,9 +76,26 @@ def main():
         st.session_state.chat_history = None
 
     st.header("Chat with your Documents :books:")
+    # placeholder = st.empty()
+
     user_question = st.text_input("Ask about something in your documents:")
     if user_question:
-        handle_userinput(user_question)
+        # handle_userinput(user_question)
+        with st.spinner("Thinking..."):
+            response = st.session_state.conversation({'question': user_question})
+            st.session_state.chat_history = response['chat_history']
+
+            for i, message in enumerate(st.session_state.chat_history):
+                if i % 2 == 0:
+                    #with placeholder.container():
+                        #st.write("This is one element")
+                        st.write(user_template.replace(
+                            "{{MSG}}", message.content), unsafe_allow_html=True)
+                else:
+                    #with placeholder.container():
+                        #st.write("This is one element")
+                        st.write(bot_template.replace(
+                            "{{MSG}}", message.content), unsafe_allow_html=True)
 
     with st.sidebar:
         st.subheader("Your documents")
