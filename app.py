@@ -9,13 +9,16 @@ from langchain.memory import ConversationBufferMemory
 from langchain.chains import ConversationalRetrievalChain
 from htmlTemplates import css, bot_template, user_template
 from langchain.llms import HuggingFaceHub
+import os
 
 def get_pdf_text(pdf_docs):
     text = ""
-    for pdf in pdf_docs:
-        pdf_reader = PdfReader(pdf)
-        for page in pdf_reader.pages:
-            text += page.extract_text()
+    for page in pdf_docs.pages:
+        text += page.extract_text()
+    # for pdf in pdf_docs:
+    #     pdf_reader = PdfReader(pdf)
+    #     for page in pdf_reader.pages:
+    #         text += page.extract_text()
     return text
 
 
@@ -66,19 +69,42 @@ def handle_userinput(user_question):
 
 def main():
     load_dotenv()
-    st.set_page_config(page_title="Chat with your Documents",
+    st.set_page_config(page_title="Ask Arkleap HR",
                        page_icon=":books:")
     st.write(css, unsafe_allow_html=True)
+
+    isFile = os.path.isfile('docs/Arkleap.faiis')
+    with st.spinner("Reading Documents..."):
+        if not isFile:
+            # get pdf text
+            pdf_docs = PdfReader('docs/Arkleap.pdf')
+            raw_text = get_pdf_text(pdf_docs)
+
+            # get the text chunks
+            text_chunks = get_text_chunks(raw_text)
+
+            # create vector store
+            vectorstore = get_vectorstore(text_chunks)
+
+            vectorstore.save_local('docs', 'Arkleap')
+        else:
+            embeddings = OpenAIEmbeddings()
+            # embeddings = HuggingFaceInstructEmbeddings(model_name="hkunlp/instructor-xl")
+            vectorstore = FAISS.load_local('docs', embeddings, 'Arkleap')
+
+        # create conversation chain
+        st.session_state.conversation = get_conversation_chain(
+            vectorstore)
 
     if "conversation" not in st.session_state:
         st.session_state.conversation = None
     if "chat_history" not in st.session_state:
         st.session_state.chat_history = None
 
-    st.header("Chat with your Documents :books:")
+    st.header("Chat with Arkleap policies :books:")
     # placeholder = st.empty()
 
-    user_question = st.text_input("Ask about something in your documents:")
+    user_question = st.text_input("Ask about something related to our policies:")
     if user_question:
         # handle_userinput(user_question)
         with st.spinner("Thinking..."):
@@ -97,25 +123,11 @@ def main():
                         st.write(bot_template.replace(
                             "{{MSG}}", message.content), unsafe_allow_html=True)
 
-    with st.sidebar:
-        st.subheader("Your documents")
-        pdf_docs = st.file_uploader(
-            "Upload your PDFs here and click on 'Process'", accept_multiple_files=True)
+    #with st.sidebar:
+    #    st.subheader("Your documents")
+    #    pdf_docs = st.file_uploader(
+    #        "Upload your PDFs here and click on 'Process'", accept_multiple_files=True)
 
-        if st.button("Process"):
-            with st.spinner("Reading Documents..."):
-                # get pdf text
-                raw_text = get_pdf_text(pdf_docs)
-
-                # get the text chunks
-                text_chunks = get_text_chunks(raw_text)
-
-                # create vector store
-                vectorstore = get_vectorstore(text_chunks)
-
-                # create conversation chain
-                st.session_state.conversation = get_conversation_chain(
-                    vectorstore)
 
 
 if __name__ == '__main__':
